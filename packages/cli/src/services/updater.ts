@@ -21,6 +21,39 @@ const OCV_NPM_PACKAGE = "@leohenon/ocv"
 const OCV_BREW_FORMULA = "leohenon/tap/ocv"
 const OCV_INSTALLER = `https://raw.githubusercontent.com/${OCV_REPO}/ocv/install.sh`
 
+/**
+ * Compares an ocv release against the running version. Releases are versioned
+ * "<upstream>-ocv.<track>": the upstream part decides whether the release is
+ * newer, and the track decides within one upstream version.
+ */
+export function isOcvUpdate(current: string, latest: string) {
+  const parse = (input: string) => {
+    const match = input.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-ocv\.(\d+)\.(\d+))?$/)
+    if (!match) return
+    return {
+      upstream: [Number(match[1]), Number(match[2]), Number(match[3])] as const,
+      track: match[4] === undefined ? undefined : [Number(match[4]), Number(match[5])] as const,
+    }
+  }
+  const a = parse(current)
+  const b = parse(latest)
+  // A release that cannot be read is never offered.
+  if (!b) return false
+  // A build without a version cannot be compared, so the release is offered.
+  // Release builds always carry a version, and they are the ones that must
+  // not be pushed to an older upstream.
+  if (!a) return true
+  for (let index = 0; index < 3; index++) {
+    if (b.upstream[index] > a.upstream[index]) return true
+    if (b.upstream[index] < a.upstream[index]) return false
+  }
+  // Same upstream version: only a newer ocv track is an update.
+  if (!a.track || !b.track) return false
+  if (b.track[0] > a.track[0]) return true
+  if (b.track[0] < a.track[0]) return false
+  return b.track[1] > a.track[1]
+}
+
 export type Method = (typeof methods)[number]
 export type RunResult = { readonly type: "available" | "installed"; readonly version: string }
 export type CheckResult = RunResult | { readonly type: "unavailable"; readonly message: string }
@@ -338,6 +371,11 @@ const make = Effect.gen(function* () {
         detail: "The GitHub release API returned incomplete release information.",
         retry: "Try again in a few minutes.",
       }))
+      // ocv: releases are versioned "<upstream>-ocv.<track>". A release that
+      // tracks an older upstream is not an update, so it is reported as the
+      // current version instead of offering a downgrade.
+      if (!isOcvUpdate(OPENCODE_VERSION, version))
+        return { package: method === "brew" ? OCV_BREW_FORMULA : OCV_NPM_PACKAGE, version: OPENCODE_VERSION }
       return { package: method === "brew" ? OCV_BREW_FORMULA : OCV_NPM_PACKAGE, version }
     }
     const response = yield* Effect.tryPromise({

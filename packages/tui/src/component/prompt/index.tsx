@@ -2124,6 +2124,10 @@ export function Prompt(props: PromptProps) {
       <Show when={vimIndicator()}>
         {(indicator) => (
           <text
+            // ocv: the indicator keeps its width. The location label next to it
+            // truncates instead, so the mode never wraps onto another row.
+            flexShrink={0}
+            wrapMode="none"
             fg={
               vimState.pending()
                 ? vimTheme().textMuted

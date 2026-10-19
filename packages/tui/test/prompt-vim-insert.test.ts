@@ -56,3 +56,28 @@ test("prompt shows the vim mode and inserts spaces after re-entering insert mode
     setup.renderer.destroy()
   }
 })
+
+test("the vim mode indicator keeps its width next to a long location", async () => {
+  await using setup = await createAppFixture({
+    width: 80,
+    height: 30,
+    config: { animations: false, vim: { enabled: true } } as any,
+  })
+  try {
+    await setup.ready
+    expect(await frameHas(setup, "-- INSERT --")).toBe(true)
+    setup.mockInput.pressEscape()
+    expect(await frameHas(setup, "-- NORMAL --")).toBe(true)
+
+    // The indicator is never squeezed or wrapped onto another row, so the
+    // mode stays readable next to a long path.
+    const footer = setup
+      .captureCharFrame()
+      .split("\n")
+      .filter((line) => line.includes("NORMAL"))
+    expect(footer).toHaveLength(1)
+    expect(footer[0]).toContain("-- NORMAL -- ")
+  } finally {
+    setup.renderer.destroy()
+  }
+})

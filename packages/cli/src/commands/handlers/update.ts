@@ -8,6 +8,7 @@ import { Runtime } from "../../framework/runtime"
 import { handlePromptErrors } from "../../ui/prompt"
 import { errorMessage } from "../../util/error"
 import { OPENCODE_VERSION } from "../../version"
+import { isOcvUpdate } from "../../services/updater"
 
 // ocv: `ocv update` replaces the running binary with the latest ocv release.
 // Upstream's `upgrade` command talks to the opencode.ai update service, which
@@ -93,8 +94,8 @@ export default Runtime.handler(
       const version = yield* latest()
       progress.stop(`Latest version: ${version}`)
 
-      if (OPENCODE_VERSION === version) {
-        log.warn(`Already on the latest version (${version})`)
+      if (OPENCODE_VERSION === version || !isOcvUpdate(OPENCODE_VERSION, version)) {
+        log.warn(`Already on the latest version (${OPENCODE_VERSION})`)
         outro("Done")
         return
       }
